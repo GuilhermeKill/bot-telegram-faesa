@@ -1,43 +1,48 @@
+require('dotenv/config')
+
 const migrationsRun = require('./database/sqlite/migrations')
 const sqliteConnection = require('./database/sqlite')
 const TelegramBot = require('node-telegram-bot-api');
-require('dotenv/config')
-migrationsRun()
-
-
 const token = process.env.TOKEN;
 const bot = new TelegramBot(token, {polling: true});
+const validator = require("email-validator");
 let foraDoHorario = false
+migrationsRun()
 
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   let request = msg
-  const tempo = new Date()
-  
+  let time = new Date().getHours()
+
+  time = 4
+
   async function insert(){
     if(foraDoHorario){
-      const database = await sqliteConnection()
-      database.run("INSERT INTO users (email) VALUES (?)", [request.text])
+      while (foraDoHorario){
+        if(validator.validate(msg.text)){
+          const database = await sqliteConnection()
+          await database.run("INSERT INTO users (email) VALUES (?)", [request.text])
 
-      foraDoHorario = false
+          bot.sendMessage(chatId, 'Cadastramos seu email, entraremos em contato');
+          foraDoHorario = false 
 
-      return true
+          return
+        }
+        else {
+          bot.sendMessage(chatId, 'Por favor, insira um email válido');
+          foraDoHorario = false
+        }
+      }
     }
 
-    if(tempo.getHours() > 18 || tempo.getHours() < 9) {
-      foraDoHorario = true
-      
-      bot.sendMessage(chatId, 'NO MOMENTO NÃO ESTAMOS ATENDENDO, POR FAVOR DEIXE SEU EMAIL');
-      foraDoHorario = true
+    if(time > 9 && time < 18) {
+      bot.sendMessage(chatId, 'https://faesa.br');
 
       return
     } 
-    
-    else {
-      bot.sendMessage(chatId, 'https://faesa.br');
-      
-      return
-    }
+
+    bot.sendMessage(chatId, 'NO MOMENTO NÃO ESTAMOS ATENDENDO, POR FAVOR DEIXE SEU EMAIL');
+    foraDoHorario = true
   }
 
   insert()
